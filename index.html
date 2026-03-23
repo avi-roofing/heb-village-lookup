@@ -64,6 +64,7 @@
             <div class="data-item"><span class="label">Full Gutter Replacement</span><span id="resFullGutter" class="value"></span></div>
 
             <div class="data-item full-width"><span class="label">Claim Number</span><span id="resClaim" class="value"></span></div>
+            <div class="data-item full-width"><span class="label">Testing Info</span><span id="resTesting" class="value"></span></div>
             <div class="data-item full-width"><span class="label">Description</span><span id="resDesc" class="value"></span></div>
         </div>
     </div>
@@ -116,7 +117,8 @@ function parseCSV(text) {
             partialGutter: formatCurrency(col[13]),
             fullGutter: formatCurrency(col[14]),
             desc: col[15] ? col[15].replace(/"/g, '').trim() : "-",
-            claim: col[16] || "-"
+            claim: col[16] || "-",
+            testing: col[17] || "-" // GRABBING COLUMN R (Index 17)
         });
     }
     populateDropdowns();
@@ -170,6 +172,7 @@ function updateFromSelection(type) {
     document.getElementById('resFullGutter').innerText = item.fullGutter;
     document.getElementById('resDesc').innerText = item.desc;
     document.getElementById('resClaim').innerText = item.claim;
+    document.getElementById('resTesting').innerText = item.testing; // SHOWING DATA
     document.getElementById('resultCard').style.display = 'block';
 }
 
