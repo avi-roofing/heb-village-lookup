@@ -3,29 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live Building Lookup</title>
+    <title>Building Lookup - GitHub Hosted</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f4f7f6; padding: 20px; color: #333; }
         .container { max-width: 900px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         .search-section { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 30px; background: #eef2f3; padding: 20px; border-radius: 8px; }
         .search-group { display: flex; flex-direction: column; }
         label { font-size: 0.85rem; font-weight: bold; margin-bottom: 5px; color: #7f8c8d; }
-        select { padding: 10px; border-radius: 5px; border: 1px solid #ccc; font-size: 1rem; width: 100%; }
+        select { padding: 10px; border-radius: 5px; border: 1px solid #ccc; font-size: 1rem; width: 100%; cursor: pointer; }
         .result-card { display: none; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; margin-top: 20px; }
         .result-header { background: #3498db; color: white; padding: 15px; font-size: 1.2rem; font-weight: bold; }
         .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: #e0e0e0; }
         .data-item { background: white; padding: 12px 15px; }
-        .label { font-weight: bold; font-size: 0.8rem; color: #7f8c8d; text-transform: uppercase; display: block; }
+        .label { font-weight: bold; font-size: 0.8rem; color: #7f8c8d; text-transform: uppercase; display: block; margin-bottom: 4px; }
         .value { font-size: 1rem; color: #2c3e50; }
         .full-width { grid-column: span 2; border-top: 1px solid #eee; }
-        .loading { text-align: center; color: #7f8c8d; padding: 20px; }
+        .loading { text-align: center; color: #7f8c8d; padding: 20px; font-style: italic; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>Building Inspection Lookup (Live)</h2>
-    <div id="loading" class="loading">Fetching latest data from Google Sheets...</div>
+    <h2>Building Inspection Lookup</h2>
+    <div id="status" class="loading">Loading data from repository...</div>
     
     <div class="search-section" id="searchUI" style="display:none;">
         <div class="search-group">
@@ -51,53 +51,59 @@
             <div class="data-item"><span class="label">Class</span><span id="resClass" class="value"></span></div>
             <div class="data-item"><span class="label">Color</span><span id="resColor" class="value"></span></div>
             <div class="data-item"><span class="label">Re-Roof Date</span><span id="resDate" class="value"></span></div>
-            <div class="data-item"><span class="label">2025 Rating</span><span id="resRating" class="value"></span></div>
+            <div class="data-item"><span class="label">2025 Rating</span><span id="resRating" class="value" style="color:#e67e22; font-weight:bold;"></span></div>
             <div class="data-item"><span class="label">Repair Cost</span><span id="resCost" class="value"></span></div>
             <div class="data-item"><span class="label">Vent Type</span><span id="resVent" class="value"></span></div>
-            <div class="data-item full-width"><span class="label">Notes</span><span id="resDesc" class="value"></span></div>
+            <div class="data-item full-width"><span class="label">Notes & Description</span><span id="resDesc" class="value"></span></div>
         </div>
     </div>
 </div>
 
 <script>
-// PASTE YOUR PUBLISHED GOOGLE SHEETS CSV URL HERE
-const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR5KZzNUSI_B80_At5UP5HNAYQoMLvR2RrrJfPitTLvudRhuW3F007VfZpBMhJbfg/pub?output=csv';
-
+// This looks for a file named data.csv in the same GitHub folder
+const DATA_FILE = 'data.csv';
 let globalData = [];
 
-async function fetchData() {
+async function loadData() {
     try {
-        const response = await fetch(SHEET_URL);
+        // Adding a timestamp to the URL prevents GitHub from showing "old" cached data
+        const response = await fetch(DATA_FILE + '?v=' + Date.now());
+        if (!response.ok) throw new Error("File not found");
         const csvText = await response.text();
         parseCSV(csvText);
-        document.getElementById('loading').style.display = 'none';
+        document.getElementById('status').style.display = 'none';
         document.getElementById('searchUI').style.display = 'grid';
     } catch (error) {
-        document.getElementById('loading').innerText = "Error loading data. Check your URL.";
+        document.getElementById('status').innerText = "Error: Could not find data.csv in this folder.";
+        console.error(error);
     }
 }
 
 function parseCSV(text) {
-    const lines = text.split('\n');
-    // Skip header (lines[0]) and process rows
+    const lines = text.split(/\r?\n/);
+    globalData = [];
+    
     for (let i = 1; i < lines.length; i++) {
-        const col = lines[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/); // Handles commas inside quotes
-        if (col.length < 3 || !col[0]) continue; // Skip empty/total rows
+        // Splits by comma but ignores commas inside quotes
+        const col = lines[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/); 
+        
+        // Skip empty rows or the "TOTALS" row [cite: 1]
+        if (col.length < 3 || !col[0] || col[8] === "TOTALS:") continue;
 
         globalData.push({
             bldg: col[0].trim(),
             addr: col[1].replace(/"/g, '').trim(),
             street: col[2].trim(),
-            units: col[3],
-            roof: col[4],
-            man: col[5],
-            class: col[6],
-            color: col[7],
-            date: col[8],
-            rating: col[9],
-            cost: col[10],
-            vent: col[11],
-            desc: col[15]
+            units: col[3] ? col[3].trim() : '-',
+            roof: col[4] ? col[4].trim() : '-',
+            man: col[5] ? col[5].trim() : '-',
+            class: col[6] ? col[6].trim() : '-',
+            color: col[7] ? col[7].trim() : '-',
+            date: col[8] ? col[8].trim() : '-',
+            rating: col[9] ? col[9].trim() : '-',
+            cost: col[10] ? col[10].trim() : '-',
+            vent: col[11] ? col[11].trim() : '-',
+            desc: col[15] ? col[15].replace(/"/g, '').trim() : '-'
         });
     }
     populateDropdowns();
@@ -129,7 +135,10 @@ function updateFromSelection(type) {
         idx = globalData.findIndex(d => d.street === selStreet.value);
     }
 
-    if (!idx && idx !== 0) return;
+    if (idx === "" || idx === undefined || idx === -1) {
+        document.getElementById('resultCard').style.display = 'none';
+        return;
+    }
     
     const item = globalData[idx];
     selBldg.value = idx;
@@ -144,13 +153,13 @@ function updateFromSelection(type) {
     document.getElementById('resColor').innerText = item.color;
     document.getElementById('resDate').innerText = item.date;
     document.getElementById('resRating').innerText = item.rating;
-    document.getElementById('resCost').innerText = item.cost ? `$${item.cost}` : '-';
+    document.getElementById('resCost').innerText = item.cost && item.cost !== '-' ? `$${item.cost}` : '-';
     document.getElementById('resVent').innerText = item.vent;
     document.getElementById('resDesc').innerText = item.desc;
     document.getElementById('resultCard').style.display = 'block';
 }
 
-fetchData();
+loadData();
 </script>
 </body>
 </html>
