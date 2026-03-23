@@ -3,21 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Building Lookup - GitHub Hosted</title>
+    <title>Building Inspection Lookup</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f4f7f6; padding: 20px; color: #333; }
-        .container { max-width: 900px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h2 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; margin-top: 0; }
         .search-section { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 30px; background: #eef2f3; padding: 20px; border-radius: 8px; }
         .search-group { display: flex; flex-direction: column; }
         label { font-size: 0.85rem; font-weight: bold; margin-bottom: 5px; color: #7f8c8d; }
         select { padding: 10px; border-radius: 5px; border: 1px solid #ccc; font-size: 1rem; width: 100%; cursor: pointer; }
         .result-card { display: none; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; margin-top: 20px; }
         .result-header { background: #3498db; color: white; padding: 15px; font-size: 1.2rem; font-weight: bold; }
-        .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: #e0e0e0; }
+        .data-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1px; background: #e0e0e0; }
         .data-item { background: white; padding: 12px 15px; }
-        .label { font-weight: bold; font-size: 0.8rem; color: #7f8c8d; text-transform: uppercase; display: block; margin-bottom: 4px; }
-        .value { font-size: 1rem; color: #2c3e50; }
-        .full-width { grid-column: span 2; border-top: 1px solid #eee; }
+        .label { font-weight: bold; font-size: 0.75rem; color: #7f8c8d; text-transform: uppercase; display: block; margin-bottom: 4px; }
+        .value { font-size: 0.95rem; color: #2c3e50; }
+        .full-width { grid-column: span 3; border-top: 1px solid #eee; }
+        .highlight { color: #e67e22; font-weight: bold; }
         .loading { text-align: center; color: #7f8c8d; padding: 20px; font-style: italic; }
     </style>
 </head>
@@ -45,28 +47,34 @@
     <div id="resultCard" class="result-card">
         <div id="resHeader" class="result-header"></div>
         <div class="data-grid">
-            <div class="data-item"><span class="label">Units</span><span id="resUnits" class="value"></span></div>
-            <div class="data-item"><span class="label">Roof Type</span><span id="resRoof" class="value"></span></div>
-            <div class="data-item"><span class="label">Manufacturer</span><span id="resMan" class="value"></span></div>
+            <div class="data-item"><span class="label">Number of Units</span><span id="resUnits" class="value"></span></div>
+            <div class="data-item"><span class="label">Bld Type</span><span id="resBldType" class="value"></span></div>
+            <div class="data-item"><span class="label">Manufacture</span><span id="resMan" class="value"></span></div>
+            
             <div class="data-item"><span class="label">Class</span><span id="resClass" class="value"></span></div>
             <div class="data-item"><span class="label">Color</span><span id="resColor" class="value"></span></div>
-            <div class="data-item"><span class="label">Re-Roof Date</span><span id="resDate" class="value"></span></div>
-            <div class="data-item"><span class="label">2025 Rating</span><span id="resRating" class="value" style="color:#e67e22; font-weight:bold;"></span></div>
-            <div class="data-item"><span class="label">Repair Cost</span><span id="resCost" class="value"></span></div>
-            <div class="data-item"><span class="label">Vent Type</span><span id="resVent" class="value"></span></div>
-            <div class="data-item full-width"><span class="label">Notes & Description</span><span id="resDesc" class="value"></span></div>
+            <div class="data-item"><span class="label">Re-Roof Completion</span><span id="resDate" class="value"></span></div>
+            
+            <div class="data-item"><span class="label">2025 Insp Rating</span><span id="resRating" class="value highlight"></span></div>
+            <div class="data-item"><span class="label">Repair Cost</span><span id="resRepairCost" class="value"></span></div>
+            <div class="data-item"><span class="label">Vent Type (#)</span><span id="resVentType" class="value"></span></div>
+            
+            <div class="data-item"><span class="label">Vent Replacement</span><span id="resVentRepl" class="value"></span></div>
+            <div class="data-item"><span class="label">Partial Gutters</span><span id="resPartialGutter" class="value"></span></div>
+            <div class="data-item"><span class="label">Full Gutter Replacement</span><span id="resFullGutter" class="value"></span></div>
+
+            <div class="data-item full-width"><span class="label">Claim Number</span><span id="resClaim" class="value"></span></div>
+            <div class="data-item full-width"><span class="label">Description</span><span id="resDesc" class="value"></span></div>
         </div>
     </div>
 </div>
 
 <script>
-// This looks for a file named data.csv in the same GitHub folder
 const DATA_FILE = 'data.csv';
 let globalData = [];
 
 async function loadData() {
     try {
-        // Adding a timestamp to the URL prevents GitHub from showing "old" cached data
         const response = await fetch(DATA_FILE + '?v=' + Date.now());
         if (!response.ok) throw new Error("File not found");
         const csvText = await response.text();
@@ -74,9 +82,13 @@ async function loadData() {
         document.getElementById('status').style.display = 'none';
         document.getElementById('searchUI').style.display = 'grid';
     } catch (error) {
-        document.getElementById('status').innerText = "Error: Could not find data.csv in this folder.";
-        console.error(error);
+        document.getElementById('status').innerText = "Error: Could not find data.csv.";
     }
+}
+
+function formatCurrency(val) {
+    if (!val || val.trim() === "" || isNaN(val.replace(/[^0-9.]/g, ''))) return val || "-";
+    return "$" + parseFloat(val.replace(/[^0-9.]/g, '')).toLocaleString();
 }
 
 function parseCSV(text) {
@@ -84,26 +96,27 @@ function parseCSV(text) {
     globalData = [];
     
     for (let i = 1; i < lines.length; i++) {
-        // Splits by comma but ignores commas inside quotes
         const col = lines[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/); 
-        
-        // Skip empty rows or the "TOTALS" row [cite: 1]
-        if (col.length < 3 || !col[0] || col[8] === "TOTALS:") continue;
+        if (col.length < 5 || !col[0] || col[0].toLowerCase().includes("total")) continue;
 
         globalData.push({
             bldg: col[0].trim(),
             addr: col[1].replace(/"/g, '').trim(),
             street: col[2].trim(),
-            units: col[3] ? col[3].trim() : '-',
-            roof: col[4] ? col[4].trim() : '-',
-            man: col[5] ? col[5].trim() : '-',
-            class: col[6] ? col[6].trim() : '-',
-            color: col[7] ? col[7].trim() : '-',
-            date: col[8] ? col[8].trim() : '-',
-            rating: col[9] ? col[9].trim() : '-',
-            cost: col[10] ? col[10].trim() : '-',
-            vent: col[11] ? col[11].trim() : '-',
-            desc: col[15] ? col[15].replace(/"/g, '').trim() : '-'
+            units: col[3] || "-",
+            bldType: col[4] || "-",
+            man: col[5] || "-",
+            class: col[6] || "-",
+            color: col[7] || "-",
+            date: col[8] || "-",
+            rating: col[9] || "-",
+            repairCost: formatCurrency(col[10]),
+            ventType: col[11] || "-",
+            ventRepl: formatCurrency(col[12]),
+            partialGutter: formatCurrency(col[13]),
+            fullGutter: formatCurrency(col[14]),
+            desc: col[15] ? col[15].replace(/"/g, '').trim() : "-",
+            claim: col[16] || "-"
         });
     }
     populateDropdowns();
@@ -135,10 +148,7 @@ function updateFromSelection(type) {
         idx = globalData.findIndex(d => d.street === selStreet.value);
     }
 
-    if (idx === "" || idx === undefined || idx === -1) {
-        document.getElementById('resultCard').style.display = 'none';
-        return;
-    }
+    if (idx === "" || idx === undefined || idx === -1) return;
     
     const item = globalData[idx];
     selBldg.value = idx;
@@ -147,15 +157,19 @@ function updateFromSelection(type) {
 
     document.getElementById('resHeader').innerText = `Building ${item.bldg}: ${item.addr} ${item.street}`;
     document.getElementById('resUnits').innerText = item.units;
-    document.getElementById('resRoof').innerText = item.roof;
+    document.getElementById('resBldType').innerText = item.bldType;
     document.getElementById('resMan').innerText = item.man;
     document.getElementById('resClass').innerText = item.class;
     document.getElementById('resColor').innerText = item.color;
     document.getElementById('resDate').innerText = item.date;
     document.getElementById('resRating').innerText = item.rating;
-    document.getElementById('resCost').innerText = item.cost && item.cost !== '-' ? `$${item.cost}` : '-';
-    document.getElementById('resVent').innerText = item.vent;
+    document.getElementById('resRepairCost').innerText = item.repairCost;
+    document.getElementById('resVentType').innerText = item.ventType;
+    document.getElementById('resVentRepl').innerText = item.ventRepl;
+    document.getElementById('resPartialGutter').innerText = item.partialGutter;
+    document.getElementById('resFullGutter').innerText = item.fullGutter;
     document.getElementById('resDesc').innerText = item.desc;
+    document.getElementById('resClaim').innerText = item.claim;
     document.getElementById('resultCard').style.display = 'block';
 }
 
